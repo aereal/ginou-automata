@@ -4,5 +4,8 @@
   "main": "index.js",
   "author": "aereal <aereal@aereal.org>",
   "license": "MIT",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "puppeteer-core": "^8.0.0"
+  }
 }
