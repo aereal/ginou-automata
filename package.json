@@ -7,5 +7,9 @@
   "private": true,
   "dependencies": {
     "puppeteer-core": "^8.0.0"
+  },
+  "devDependencies": {
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.3"
   }
 }
