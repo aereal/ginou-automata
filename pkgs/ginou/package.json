@@ -24,7 +24,7 @@
     "launch": "ts-node src/index.ts"
   },
   "dependencies": {
-    "puppeteer-core": "^8.0.0"
+    "puppeteer-core": "^10.0.0"
   },
   "devDependencies": {
     "@aereal/eslint-config": "^0.1.6",
@@ -39,7 +39,7 @@
     "eslint-plugin-react": "^7.22.0",
     "eslint-plugin-react-hooks": "^4.2.0",
     "prettier": "^2.2.1",
-    "ts-node": "^9.1.1",
-    "typescript": "^4.2.3"
+    "ts-node": "^10.0.0",
+    "typescript": "^4.3.2"
   }
 }
