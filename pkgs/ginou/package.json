@@ -20,8 +20,25 @@
     "trailingComma": "es5",
     "semi": false
   },
+  "jest": {
+    "roots": [
+      "<rootDir>/src"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json"
+    ]
+  },
   "scripts": {
-    "launch": "ts-node src/index.ts"
+    "launch": "ts-node src/index.ts",
+    "test": "jest"
   },
   "dependencies": {
     "puppeteer-core": "^10.0.0"
