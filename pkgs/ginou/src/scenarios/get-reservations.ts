@@ -3,17 +3,11 @@ import { parse } from "date-fns"
 import { utcToZonedTime } from "date-fns-tz"
 import { ElementHandle } from "puppeteer-core"
 import { isPresent } from "../present"
+import { Reservation } from "../reservation"
 import { LoggedIn } from "./login"
 import { State } from "./types"
 
 const getReservationsType: unique symbol = Symbol()
-
-interface Reservation {
-  readonly date: Date
-  readonly startTime: Date
-  readonly finishTime: Date
-  readonly subject: string
-}
 
 interface GetReservationsPayload {
   readonly reservations: Reservation[]
