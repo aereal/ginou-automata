@@ -1,7 +1,7 @@
 import { eachSlice } from "@aereal/enumerable"
 import { parse } from "date-fns"
 import { utcToZonedTime } from "date-fns-tz"
-import { ElementHandle } from "puppeteer-core"
+import { ElementHandle, Frame } from "puppeteer-core"
 import { isPresent } from "../present"
 import { Reservation } from "../reservation"
 import { LoggedIn } from "./login"
@@ -11,6 +11,7 @@ const getReservationsType: unique symbol = Symbol()
 
 interface GetReservationsPayload {
   readonly reservations: Reservation[]
+  readonly loginFrame: Frame
 }
 
 export type GotReservations = State<
@@ -77,6 +78,7 @@ export const getReservations = async (prev: Prev): Promise<GotReservations> => {
     type: getReservationsType,
     payload: {
       reservations,
+      loginFrame,
     },
   }
 }
