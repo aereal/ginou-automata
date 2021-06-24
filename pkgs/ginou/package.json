@@ -41,6 +41,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@aereal/enumerable": "^0.0.3",
     "puppeteer-core": "^10.0.0"
   },
   "devDependencies": {
