@@ -13,5 +13,6 @@ export const takeScreenshot = async (
   const base = options.baseName ?? "screenshot"
   await options.page.screenshot({
     path: `./${base}${suffix}.png`,
+    fullPage: true,
   })
 }
