@@ -75,6 +75,8 @@ export const getReservations = async (prev: Prev): Promise<GotReservations> => {
   const reservations = (
     await Promise.all(pairs.map(extractReservation))
   ).filter(isPresent)
+  await loginFrame.click(`input[type=submit][value="TOPへ"]`)
+  await loginFrame.waitForNavigation()
   return {
     type: getReservationsType,
     payload: {
