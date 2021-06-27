@@ -39,7 +39,8 @@
   "scripts": {
     "launch": "ts-node src/index.ts",
     "build": "tsc -p . --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "start": "ts-node src/web.ts"
   },
   "dependencies": {
     "@aereal/enumerable": "^0.0.3",
