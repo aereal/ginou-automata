@@ -38,6 +38,7 @@
   },
   "scripts": {
     "launch": "ts-node src/index.ts",
+    "build": "tsc -p . --noEmit",
     "test": "jest"
   },
   "dependencies": {
