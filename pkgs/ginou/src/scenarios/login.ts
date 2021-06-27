@@ -6,6 +6,7 @@ const loggedInType: unique symbol = Symbol()
 
 interface LoggedInPayload {
   readonly loginFrame: Frame
+  readonly currentPage: Page
 }
 
 export type LoggedIn = State<typeof loggedInType, LoggedInPayload>
@@ -56,6 +57,7 @@ export const login = async (prev: Prev): Promise<LoggedIn> => {
     type: loggedInType,
     payload: {
       loginFrame,
+      currentPage: page,
     },
   }
 }

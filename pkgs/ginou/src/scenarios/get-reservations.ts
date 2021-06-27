@@ -1,7 +1,7 @@
 import { eachSlice } from "@aereal/enumerable"
 import { parse } from "date-fns"
 import { utcToZonedTime } from "date-fns-tz"
-import { ElementHandle, Frame } from "puppeteer-core"
+import { ElementHandle, Frame, Page } from "puppeteer-core"
 import { isPresent } from "../present"
 import { Reservation } from "../reservation"
 import { LoggedIn } from "./login"
@@ -12,6 +12,7 @@ const getReservationsType: unique symbol = Symbol()
 interface GetReservationsPayload {
   readonly reservations: Reservation[]
   readonly loginFrame: Frame
+  readonly currentPage: Page
 }
 
 export type GotReservations = State<
@@ -27,7 +28,7 @@ const parseTime = (s: string, base: Date): Date => parse(s, "HH:mm", base)
 
 export const getReservations = async (prev: Prev): Promise<GotReservations> => {
   const {
-    payload: { loginFrame },
+    payload: { loginFrame, currentPage },
   } = prev
   await loginFrame.click("#btnMenu_YoyakuItiran")
   await loginFrame.waitForNavigation()
@@ -79,6 +80,7 @@ export const getReservations = async (prev: Prev): Promise<GotReservations> => {
     payload: {
       reservations,
       loginFrame,
+      currentPage,
     },
   }
 }
