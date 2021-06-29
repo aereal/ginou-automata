@@ -6,10 +6,12 @@ import { login } from "./scenarios/login"
 import { takeScreenshot } from "./take-screenshot"
 
 export const main = async () => {
+  const { NODE_ENV } = process.env
+  const isProduction = NODE_ENV === "production"
   const browser = await launchPuppeteer({
-    inContainer: process.env.NODE_ENV === "production",
+    inContainer: isProduction,
   })
-  const envOrError = await prepareEnv()
+  const envOrError = await prepareEnv(NODE_ENV ?? "")
   if (isError(envOrError)) {
     throw envOrError
   }
