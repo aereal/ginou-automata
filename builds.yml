@@ -27,6 +27,7 @@ steps:
       - '--region=$_DEPLOY_REGION'
       - '--set-env-vars=NODE_ENV=production'
       - '--service-account=cloud-run-runner@ginou-automata.iam.gserviceaccount.com'
+      - '--memory=1Gi'
       - '--quiet'
     id: Deploy
     entrypoint: gcloud
