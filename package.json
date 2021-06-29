@@ -46,7 +46,7 @@
     "@aereal/enumerable": "^0.0.3",
     "date-fns": "^2.22.1",
     "date-fns-tz": "^1.1.4",
-    "puppeteer-core": "^10.0.0"
+    "puppeteer": "^10.1.0"
   },
   "devDependencies": {
     "@aereal/eslint-config": "^0.1.6",

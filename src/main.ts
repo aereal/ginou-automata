@@ -1,4 +1,4 @@
-import { launch } from "puppeteer-core"
+import { launch } from "puppeteer"
 import { prepareEnv } from "./prepare-env"
 import { doReserve } from "./scenarios/do-reserve"
 import { getReservations } from "./scenarios/get-reservations"
@@ -6,11 +6,7 @@ import { login } from "./scenarios/login"
 import { takeScreenshot } from "./take-screenshot"
 
 export const main = async () => {
-  const browser = await launch({
-    executablePath:
-      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    timeout: 5000,
-  })
+  const browser = await launch({ timeout: 5000 })
   const env = prepareEnv()
   if (env === undefined) {
     throw new Error(

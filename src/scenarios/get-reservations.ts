@@ -1,7 +1,7 @@
 import { eachSlice } from "@aereal/enumerable"
 import { parse } from "date-fns"
 import { utcToZonedTime } from "date-fns-tz"
-import { ElementHandle, Frame, Page } from "puppeteer-core"
+import { ElementHandle, Frame, Page } from "puppeteer"
 import { isPresent } from "../present"
 import { Reservation } from "../reservation"
 import { LoggedIn } from "./login"

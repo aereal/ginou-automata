@@ -1,4 +1,4 @@
-import { Frame, Page } from "puppeteer-core"
+import { Frame, Page } from "puppeteer"
 import { Environment } from "../prepare-env"
 import { State } from "./types"
 

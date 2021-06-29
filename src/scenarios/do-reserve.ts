@@ -1,4 +1,4 @@
-import { ElementHandle, Frame, Page } from "puppeteer-core"
+import { ElementHandle, Frame, Page } from "puppeteer"
 import { Reservation } from "../reservation"
 import { takeScreenshot } from "../take-screenshot"
 import { waitForTransitionEnd } from "../wait-for-transition-end"
