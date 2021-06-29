@@ -1,4 +1,4 @@
-import { launch } from "puppeteer"
+import { launchPuppeteer } from "./launch-puppeteer"
 import { prepareEnv } from "./prepare-env"
 import { doReserve } from "./scenarios/do-reserve"
 import { getReservations } from "./scenarios/get-reservations"
@@ -6,7 +6,9 @@ import { login } from "./scenarios/login"
 import { takeScreenshot } from "./take-screenshot"
 
 export const main = async () => {
-  const browser = await launch({ timeout: 5000 })
+  const browser = await launchPuppeteer({
+    inContainer: process.env.NODE_ENV === "production",
+  })
   const env = prepareEnv()
   if (env === undefined) {
     throw new Error(
