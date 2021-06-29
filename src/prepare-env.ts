@@ -12,7 +12,7 @@ export class MissingRequiredParameterError extends Error {
 
 export const isError = (x: unknown): x is Error => x instanceof Error
 
-export const prepareEnv = (): Environment | Error => {
+const prepareEnvFromEnvironmentVariables = (): Environment | Error => {
   const {
     GINOU_LOGIN_ID: id,
     GINOU_LOGIN_PASSWORD: password,
@@ -28,4 +28,8 @@ export const prepareEnv = (): Environment | Error => {
     return new MissingRequiredParameterError("GINOU_YOYAKU_URL")
   }
   return { id, password, yoyakuURL }
+}
+
+export const prepareEnv = async (): Promise<Environment | Error> => {
+  return prepareEnvFromEnvironmentVariables()
 }

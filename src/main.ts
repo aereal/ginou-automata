@@ -9,7 +9,7 @@ export const main = async () => {
   const browser = await launchPuppeteer({
     inContainer: process.env.NODE_ENV === "production",
   })
-  const envOrError = prepareEnv()
+  const envOrError = await prepareEnv()
   if (isError(envOrError)) {
     throw envOrError
   }

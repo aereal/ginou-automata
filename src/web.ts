@@ -28,7 +28,7 @@ const handleDefault = async (
   _: IncomingMessage,
   res: ServerResponse
 ): Promise<void> => {
-  const envOrError = prepareEnv()
+  const envOrError = await prepareEnv()
   const body = JSON.stringify({
     ok: !isError(envOrError),
   })
