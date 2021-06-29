@@ -1,5 +1,5 @@
 import { launchPuppeteer } from "./launch-puppeteer"
-import { prepareEnv } from "./prepare-env"
+import { MissingRequiredParameterError, prepareEnv } from "./prepare-env"
 import { doReserve } from "./scenarios/do-reserve"
 import { getReservations } from "./scenarios/get-reservations"
 import { login } from "./scenarios/login"
@@ -9,15 +9,16 @@ export const main = async () => {
   const browser = await launchPuppeteer({
     inContainer: process.env.NODE_ENV === "production",
   })
-  const env = prepareEnv()
-  if (env === undefined) {
-    throw new Error(
-      "Missing credentials; LOGIN_ID and LOGIN_PASSWORD are required"
-    )
+  const envOrError = prepareEnv()
+  if (MissingRequiredParameterError.is(envOrError)) {
+    throw envOrError
   }
   const page = await browser.newPage()
 
-  const loggedIn = await login({ type: undefined, payload: { page, env } })
+  const loggedIn = await login({
+    type: undefined,
+    payload: { page, env: envOrError },
+  })
   await takeScreenshot({ page, baseName: "after-login", versioned: false })
   const gotReservations = await getReservations(loggedIn)
   console.log(gotReservations.payload.reservations)

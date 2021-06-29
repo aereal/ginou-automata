@@ -4,20 +4,30 @@ export interface Environment {
   readonly yoyakuURL: string
 }
 
-export const prepareEnv = (): Environment | undefined => {
+export class MissingRequiredParameterError extends Error {
+  static is(x: unknown): x is MissingRequiredParameterError {
+    return x instanceof Error && x instanceof MissingRequiredParameterError
+  }
+
+  constructor(public readonly parameterName: string) {
+    super(`Parameter ${parameterName} is required but not given`)
+  }
+}
+
+export const prepareEnv = (): Environment | Error => {
   const {
     GINOU_LOGIN_ID: id,
     GINOU_LOGIN_PASSWORD: password,
     GINOU_YOYAKU_URL: yoyakuURL,
   } = process.env
   if (id === undefined) {
-    return undefined
+    return new MissingRequiredParameterError("GINOU_LOGIN_ID")
   }
   if (password === undefined) {
-    return undefined
+    return new MissingRequiredParameterError("GINOU_LOGIN_PASSWORD")
   }
   if (yoyakuURL === undefined) {
-    return undefined
+    return new MissingRequiredParameterError("GINOU_YOYAKU_URL")
   }
   return { id, password, yoyakuURL }
 }
