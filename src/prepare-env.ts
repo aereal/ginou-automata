@@ -10,6 +10,8 @@ export class MissingRequiredParameterError extends Error {
   }
 }
 
+export const isError = (x: unknown): x is Error => x instanceof Error
+
 export const prepareEnv = (): Environment | Error => {
   const {
     GINOU_LOGIN_ID: id,

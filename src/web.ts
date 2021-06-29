@@ -1,7 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from "http"
 import { performance } from "perf_hooks"
 import { main } from "./main"
-import { prepareEnv } from "./prepare-env"
+import { isError, prepareEnv } from "./prepare-env"
 
 const { PORT } = process.env
 const port = parseInt(PORT ?? "")
@@ -30,7 +30,7 @@ const handleDefault = async (
 ): Promise<void> => {
   const envOrError = prepareEnv()
   const body = JSON.stringify({
-    ok: envOrError instanceof Error,
+    ok: !isError(envOrError),
   })
   res.writeHead(200, {
     "content-type": "application/json",
