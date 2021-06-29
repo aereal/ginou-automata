@@ -31,6 +31,7 @@ const handleDefault = async (
   const envOrError = await prepareEnv(process.env.NODE_ENV ?? "")
   const body = JSON.stringify({
     ok: !isError(envOrError),
+    error: isError(envOrError) ? envOrError.message : null,
   })
   res.writeHead(200, {
     "content-type": "application/json",
