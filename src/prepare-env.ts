@@ -5,10 +5,6 @@ export interface Environment {
 }
 
 export class MissingRequiredParameterError extends Error {
-  static is(x: unknown): x is MissingRequiredParameterError {
-    return x instanceof Error && x instanceof MissingRequiredParameterError
-  }
-
   constructor(public readonly parameterName: string) {
     super(`Parameter ${parameterName} is required but not given`)
   }

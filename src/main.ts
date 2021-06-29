@@ -1,5 +1,5 @@
 import { launchPuppeteer } from "./launch-puppeteer"
-import { MissingRequiredParameterError, prepareEnv } from "./prepare-env"
+import { prepareEnv } from "./prepare-env"
 import { doReserve } from "./scenarios/do-reserve"
 import { getReservations } from "./scenarios/get-reservations"
 import { login } from "./scenarios/login"
@@ -10,7 +10,7 @@ export const main = async () => {
     inContainer: process.env.NODE_ENV === "production",
   })
   const envOrError = prepareEnv()
-  if (MissingRequiredParameterError.is(envOrError)) {
+  if (envOrError instanceof Error) {
     throw envOrError
   }
   const page = await browser.newPage()

@@ -1,7 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from "http"
 import { performance } from "perf_hooks"
 import { main } from "./main"
-import { MissingRequiredParameterError, prepareEnv } from "./prepare-env"
+import { prepareEnv } from "./prepare-env"
 
 const { PORT } = process.env
 const port = parseInt(PORT ?? "")
@@ -30,7 +30,7 @@ const handleDefault = async (
 ): Promise<void> => {
   const envOrError = prepareEnv()
   const body = JSON.stringify({
-    ok: MissingRequiredParameterError.is(envOrError),
+    ok: envOrError instanceof Error,
   })
   res.writeHead(200, {
     "content-type": "application/json",
