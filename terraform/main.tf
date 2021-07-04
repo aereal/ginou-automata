@@ -1,3 +1,11 @@
+terraform {
+  required_providers {
+    google = {
+      source = "hashicorp/google"
+    }
+  }
+}
+
 provider "google" {
   credentials = base64decode(var.base64encoded_google_service_account)
   project     = "ginou-automata"
