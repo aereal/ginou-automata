@@ -60,6 +60,11 @@ resource "google_project_iam_member" "github_actions_runner_storage_admin" {
   member = "serviceAccount:${google_service_account.github_actions_runner.email}"
 }
 
+resource "google_project_iam_member" "github_actions_runner_run_admin" {
+  role   = "roles/run.admin"
+  member = "serviceAccount:${google_service_account.github_actions_runner.email}"
+}
+
 resource "google_service_account_key" "github_actions_runner" {
   service_account_id = google_service_account.github_actions_runner.id
 }
