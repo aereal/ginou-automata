@@ -39,12 +39,20 @@ jobs:
       - name: Setup Docker buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
+      - name: setup gcloud
+        uses: google-github-actions/setup-gcloud@v0.2.0
+        with:
+          project_id: ginou-automata
+          export_default_credentials: true
+          service_account_key: ${{ secrets.BASE64_ENCODED_GOOGLE_SERVICE_ACCOUNT_KEY }}
+      - name: configure docker
+        run: gcloud auth configure-docker --quiet
       - name: docker build
         uses: docker/build-push-action@v2
         with:
-          push: false
+          push: true
           context: .
           file: ./Dockerfile
-          tags: ${{ github.sha }}
+          tags: asia.gcr.io/ginou-automata/ginou-automata/ginou-automata-app:${{ github.sha }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,src=/tmp/.buildx-cache
