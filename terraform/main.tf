@@ -62,12 +62,19 @@ resource "google_project_iam_member" "cloud_run_runner_invoker" {
   member = "serviceAccount:${google_service_account.cloud_run_runner.email}"
 }
 
+locals {
+  cloud_run_runner_access_secrets = [google_secret_manager_secret.ginou_login_id, google_secret_manager_secret.ginou_login_password, google_secret_manager_secret.ginou_yoyaku_url]
+}
+
 resource "google_project_iam_member" "cloud_run_runner_secret_accessor" {
   role   = "roles/secretmanager.secretAccessor"
   member = "serviceAccount:${google_service_account.cloud_run_runner.email}"
   condition {
     title      = "allow_access_to_ginou-related_secrets"
-    expression = "resource.name.startsWith(\"GINOU_\")"
+    expression = <<-EOS
+      resource.type == "secretmanager.googleapis.com/Secret" &&
+      (${join(" || ", [for s in local.cloud_run_runner_access_secrets : "resource.name == \"${s.name}\""])})
+    EOS
   }
 }
 
