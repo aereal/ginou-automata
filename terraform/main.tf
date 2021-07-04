@@ -31,6 +31,27 @@ variable "github_pat" {
   sensitive = true
 }
 
+resource "google_secret_manager_secret" "ginou_login_id" {
+  replication {
+    automatic = true
+  }
+  secret_id = "GINOU_LOGIN_ID"
+}
+
+resource "google_secret_manager_secret" "ginou_login_password" {
+  replication {
+    automatic = true
+  }
+  secret_id = "GINOU_LOGIN_PASSWORD"
+}
+
+resource "google_secret_manager_secret" "ginou_yoyaku_url" {
+  replication {
+    automatic = true
+  }
+  secret_id = "GINOU_YOYAKU_URL"
+}
+
 resource "google_service_account" "cloud_run_runner" {
   account_id   = "cloud-run-runner"
   display_name = "cloud-run-runner"
