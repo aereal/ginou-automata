@@ -56,3 +56,14 @@ jobs:
           tags: asia.gcr.io/ginou-automata/ginou-automata/ginou-automata-app:${{ github.sha }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
+      - name: deploy to Cloud Run
+        run: |
+          gcloud run services update ginou-automata-app \
+            --platform=managed \
+            --image=asia.gcr.io/ginou-automata/ginou-automata/ginou-automata-app:${{ github.sha }} \
+            --region=asia-east1 \
+            --labels=commit-sha=${{ github.sha }},gh-actions-job-id=${{ github.job }} \
+            --set-env-vars=NODE_ENV=production \
+            --service-account=cloud-run-runner@ginou-automata.iam.gserviceaccount.com \
+            --memory=1Gi \
+            --quiet
