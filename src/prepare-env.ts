@@ -84,8 +84,5 @@ const prepareEnvFromSecretManager = async (): Promise<Environment | Error> => {
 export const prepareEnv = async (
   nodeEnv: string
 ): Promise<Environment | Error> => {
-  if (nodeEnv === "production") {
-    return await prepareEnvFromSecretManager()
-  }
   return prepareEnvFromEnvironmentVariables()
 }
