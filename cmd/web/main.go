@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -115,7 +120,25 @@ type appConfig struct {
 	yoyakuURL     string
 }
 
-func (a *appConfig) secretNames() []string {
+func (c *appConfig) commandEnv() []string {
+	names := c.secretNames()
+	ret := make([]string, len(names))
+	for i, name := range names {
+		var value string
+		switch name {
+		case "GINOU_LOGIN_ID":
+			value = c.loginID
+		case "GINOU_LOGIN_PASSWORD":
+			value = c.loginPassword
+		case "GINOU_YOYAKU_URL":
+			value = c.yoyakuURL
+		}
+		ret[i] = fmt.Sprintf("%s=%s", name, value)
+	}
+	return ret
+}
+
+func (_ *appConfig) secretNames() []string {
 	return []string{"GINOU_LOGIN_ID", "GINOU_LOGIN_PASSWORD", "GINOU_YOYAKU_URL"}
 }
 
@@ -152,7 +175,54 @@ func buildHandler(projectID string) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "{\"ok\":true}")
 	}))
+	mux.POST("/run", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		ctx := r.Context()
+		cfg, err := cp.AssumeConfig(ctx)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logz.Errorf(ctx, "failed to fetch config: %s", err)
+			fmt.Fprintln(w, "{\"error\":\"internal error\"}")
+			return
+		}
+		startedAt := time.Now()
+		stdout, stderr, err := runScenario(ctx, cfg)
+		elapsed := time.Since(startedAt)
+		if stdout != nil && stderr != nil {
+			out, _ := ioutil.ReadAll(stdout)
+			errout, _ := ioutil.ReadAll(stderr)
+			logz.Infof(ctx, "stdout=%q", out)
+			logz.Infof(ctx, "stderr=%q", errout)
+		}
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logz.Errorf(ctx, "failed to run scenario: %s", err)
+			fmt.Fprintln(w, "{\"error\":\"failed to run scenario\"}")
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(struct{ ElapsedMilliseconds int64 }{ElapsedMilliseconds: elapsed.Milliseconds()})
+	}))
 	return mux
+}
+
+func runScenario(ctx context.Context, cfg *appConfig) (io.Reader, io.Reader, error) {
+	if cfg == nil {
+		return nil, nil, fmt.Errorf("appConfig is nil")
+	}
+	ctx, span := otel.Tracer("app").Start(ctx, "runScenario")
+	defer span.End()
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	cmd := exec.CommandContext(ctx, "./node_modules/.bin/ts-node", "src/index.ts")
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, cfg.commandEnv()...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	if err := cmd.Run(); err != nil {
+		return stdout, stderr, err
+	}
+	return stdout, stderr, nil
 }
 
 func setupTracer(ctx context.Context, projectID string) (func(ctx context.Context) error, error) {
