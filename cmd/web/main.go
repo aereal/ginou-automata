@@ -7,12 +7,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"github.com/dimfeld/httptreemux"
 	"github.com/glassonion1/logz"
 	"github.com/glassonion1/logz/middleware"
+	"golang.org/x/sync/errgroup"
+	pb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
 func main() {
@@ -46,10 +50,69 @@ func run() error {
 	return nil
 }
 
+type appConfig struct {
+	mux           sync.Mutex
+	loginID       string
+	loginPassword string
+	yoyakuURL     string
+}
+
+func (a *appConfig) secretNames() []string {
+	return []string{"GINOU_LOGIN_ID", "GINOU_LOGIN_PASSWORD", "GINOU_YOYAKU_URL"}
+}
+
+func (c *appConfig) consume(name string, encodedValue []byte) error {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	switch name {
+	case "GINOU_LOGIN_ID":
+		c.loginID = string(encodedValue)
+		return nil
+	case "GINOU_LOGIN_PASSWORD":
+		c.loginPassword = string(encodedValue)
+		return nil
+	case "GINOU_YOYAKU_URL":
+		c.yoyakuURL = string(encodedValue)
+		return nil
+	default:
+		return fmt.Errorf("unknown name: %s", name)
+	}
+}
+
 func buildHandler() http.Handler {
 	mux := httptreemux.NewContextMux()
 	mux.GET("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logz.Infof(r.Context(), "GET /")
+		ctx := r.Context()
+		svc, err := secretmanager.NewClient(ctx)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logz.Errorf(ctx, "secretmanager.NewClient: %s", err)
+			fmt.Fprintln(w, "{\"error\":\"internal error\"}")
+			return
+		}
+		eg, ctx := errgroup.WithContext(ctx)
+		cfg := &appConfig{}
+		for _, name := range cfg.secretNames() {
+			n := name
+			eg.Go(func() error {
+				resp, err := svc.AccessSecretVersion(ctx, &pb.AccessSecretVersionRequest{
+					Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", os.Getenv("GOOGLE_CLOUD_PROJECT"), n),
+				})
+				if err != nil {
+					return fmt.Errorf("AccessSecretVersion: name=%s error=%w", n, err)
+				}
+				if err := cfg.consume(n, resp.Payload.Data); err != nil {
+					return fmt.Errorf("consume failed: name=%s error=%w", n, err)
+				}
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logz.Errorf(ctx, "failure: %+v", err)
+			fmt.Fprintln(w, "{\"error\":\"internal error\"}")
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "{\"ok\":true}")
 	}))
