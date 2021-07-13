@@ -1,3 +1,11 @@
+FROM golang:1.16-buster as builder
+
+WORKDIR /app
+COPY go.* ./
+RUN go mod download
+COPY . ./
+RUN go build -v -o ./web ./cmd/web
+
 FROM node:16
 
 WORKDIR /app
@@ -13,4 +21,5 @@ RUN apt-get update && \
 COPY yarn.lock package.json /app/
 RUN yarn install --frozen-lockfile
 COPY . /app/
-CMD ["yarn", "start"]
+COPY --from=builder /app/web /app/web
+CMD ["./web"]
