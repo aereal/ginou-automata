@@ -223,6 +223,7 @@ func runScenario(ctx context.Context, cfg *appConfig) (io.Reader, io.Reader, err
 	cmd := exec.CommandContext(ctx, "./node_modules/.bin/ts-node", "src/index.ts")
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, cfg.commandEnv()...)
+	cmd.Env = append(cmd.Env, "NODE_ENV=production")
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
