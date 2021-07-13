@@ -31,6 +31,12 @@ variable "github_pat" {
   sensitive = true
 }
 
+variable "cloud_run_endpoint" {
+  type = string
+}
+
+data "google_project" "current" {}
+
 resource "google_secret_manager_secret" "ginou_login_id" {
   replication {
     automatic = true
@@ -93,6 +99,46 @@ resource "google_project_iam_member" "github_actions_runner_sa_actor" {
 
 resource "google_service_account_key" "github_actions_runner" {
   service_account_id = google_service_account.github_actions_runner.id
+}
+
+resource "google_project_iam_member" "pubsub_sa_token_creator" {
+  role   = "roles/iam.serviceAccountTokenCreator"
+  member = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+resource "google_pubsub_topic" "invoker" {
+  name = "invoker"
+}
+
+resource "google_pubsub_subscription" "invoker" {
+  name  = "invoker-run-subscription"
+  topic = google_pubsub_topic.invoker.name
+  push_config {
+    push_endpoint = var.cloud_run_endpoint
+    oidc_token {
+      service_account_email = google_service_account.cloud_run_runner.email
+    }
+  }
+}
+
+resource "google_cloud_scheduler_job" "invoker" {
+  name      = "app_invoker"
+  time_zone = "Asia/Tokyo"
+  schedule  = "0 * * * *"
+  pubsub_target {
+    topic_name = google_pubsub_topic.invoker.id
+    data = base64encode(jsonencode({
+      via = "pubsub"
+    }))
+  }
+  depends_on = [
+    google_app_engine_application.default
+  ]
+}
+
+resource "google_app_engine_application" "default" {
+  project     = data.google_project.current.name
+  location_id = "asia-northeast1"
 }
 
 data "github_repository" "app" {
