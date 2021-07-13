@@ -51,7 +51,7 @@ func run() error {
 	defer closer(ctx)
 	logz.SetProjectID(projectID)
 	server := &http.Server{
-		Handler: otelhttp.NewHandler(middleware.NetHTTP("http")(buildHandler()), "app"),
+		Handler: otelhttp.NewHandler(middleware.NetHTTP("http")(buildHandler(projectID)), "app"),
 		Addr:    fmt.Sprintf(":%s", port),
 	}
 	go graceful(ctx, server, 5*time.Second)
@@ -60,6 +60,52 @@ func run() error {
 		return fmt.Errorf("cannot start server: %w", err)
 	}
 	return nil
+}
+
+type configProvider struct {
+	cache     *appConfig
+	projectID string
+}
+
+func (p *configProvider) AssumeConfig(ctx context.Context) (*appConfig, error) {
+	if p.cache != nil {
+		return p.cache, nil
+	}
+	var err error
+	p.cache, err = p.fetchConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return p.cache, nil
+}
+
+func (p *configProvider) fetchConfig(ctx context.Context) (*appConfig, error) {
+	svc, err := secretmanager.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("secretmanager.NewClient: %w", err)
+	}
+	eg, ctx := errgroup.WithContext(ctx)
+	cfg := &appConfig{}
+	for _, name := range cfg.secretNames() {
+		n := name
+		eg.Go(func() error {
+			resp, err := svc.AccessSecretVersion(ctx, &pb.AccessSecretVersionRequest{
+				Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", p.projectID, n),
+			})
+			if err != nil {
+				return fmt.Errorf("AccessSecretVersion: name=%s error=%w", n, err)
+			}
+			if err := cfg.consume(n, resp.Payload.Data); err != nil {
+				return fmt.Errorf("consume failed: name=%s error=%w", n, err)
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		logz.Errorf(ctx, "failure: %+v", err)
+		return nil, err
+	}
+	return cfg, nil
 }
 
 type appConfig struct {
@@ -91,37 +137,15 @@ func (c *appConfig) consume(name string, encodedValue []byte) error {
 	}
 }
 
-func buildHandler() http.Handler {
+func buildHandler(projectID string) http.Handler {
 	mux := httptreemux.NewContextMux()
+	cp := &configProvider{projectID: projectID}
 	mux.GET("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		svc, err := secretmanager.NewClient(ctx)
+		w.Header().Set("content-type", "application/json")
+		_, err := cp.AssumeConfig(ctx)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logz.Errorf(ctx, "secretmanager.NewClient: %s", err)
-			fmt.Fprintln(w, "{\"error\":\"internal error\"}")
-			return
-		}
-		eg, ctx := errgroup.WithContext(ctx)
-		cfg := &appConfig{}
-		for _, name := range cfg.secretNames() {
-			n := name
-			eg.Go(func() error {
-				resp, err := svc.AccessSecretVersion(ctx, &pb.AccessSecretVersionRequest{
-					Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", os.Getenv("GOOGLE_CLOUD_PROJECT"), n),
-				})
-				if err != nil {
-					return fmt.Errorf("AccessSecretVersion: name=%s error=%w", n, err)
-				}
-				if err := cfg.consume(n, resp.Payload.Data); err != nil {
-					return fmt.Errorf("consume failed: name=%s error=%w", n, err)
-				}
-				return nil
-			})
-		}
-		if err := eg.Wait(); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			logz.Errorf(ctx, "failure: %+v", err)
 			fmt.Fprintln(w, "{\"error\":\"internal error\"}")
 			return
 		}
