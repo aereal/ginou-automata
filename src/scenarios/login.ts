@@ -41,7 +41,9 @@ export const login = async (prev: Prev): Promise<LoggedIn> => {
     if (child.name() === loginFrameID) {
       loginFrame = child
     }
-    console.log(`child frame: id=${child.name()} url=${child.url()}`)
+    process.stderr.write(
+      `child frame: id=${child.name()} url=${child.url()}` + "\n"
+    )
   }
   if (loginFrame === undefined) {
     throw new Error("login frame not found")
@@ -50,7 +52,7 @@ export const login = async (prev: Prev): Promise<LoggedIn> => {
   await loginFrame.type("#txtKyoushuuseiNO", env.id)
   await loginFrame.type("#txtPassword", env.password)
   await loginFrame.click("#btnAuthentication")
-  console.log("clicked login button")
+  process.stderr.write("clicked login button\n")
   await loginFrame.waitForNavigation()
 
   return {

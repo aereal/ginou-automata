@@ -62,7 +62,7 @@ const tryReserveOnDay = async (
   await loginFrame.waitForSelector(schedulesListSelector, { timeout: 5000 })
   const scheduleSelector = `${slideSelector} .list-container .page`
   const foundSchedules = await loginFrame.$$(scheduleSelector)
-  console.log(`${foundSchedules.length} schedules found`)
+  process.stderr.write(`${foundSchedules.length} schedules found` + "\n")
   if (foundSchedules.length === 0) {
     return { type: triedReserveOnPageType, payload: {} }
   }
@@ -70,7 +70,7 @@ const tryReserveOnDay = async (
     .map((e) => e.asElement())
     .filter(nonNull)
   if (firstSchedule === null) {
-    console.log(`no schedule found`)
+    process.stderr.write("no schedule found\n")
     return { type: triedReserveOnPageType, payload: {} }
   }
   await takeScreenshot({ page: currentPage, baseName: "schedule-menu-visible" })
@@ -80,7 +80,7 @@ const tryReserveOnDay = async (
     ".zad-contents-area",
     (el) => el.textContent
   )
-  console.log(`reserve page = ${content}`)
+  process.stderr.write(`reserve page = ${content}` + "\n")
   // TODO
   return {
     type: triedReserveOnPageType,
@@ -113,10 +113,10 @@ const searchScheduleOnWeek = async (
   const {
     payload: { loginFrame, lastPage, holdingReservations, currentPage },
   } = prev
-  console.log(
+  process.stderr.write(
     `---> search page = ${lastPage + 1}; holding ${
       holdingReservations.length
-    } reservations`
+    } reservations` + "\n"
   )
   const slotDivs = await loginFrame.$$("#lst_lc > .page > div:not(.slide-down)")
   let index = -1
@@ -129,7 +129,6 @@ const searchScheduleOnWeek = async (
       payload: { loginFrame, index, slotDiv, currentPage },
     })
     if (newReservation !== undefined) {
-      console.log("finish")
       while (holdingReservations.length < maxReservations) {
         holdingReservations.push(holdingReservations[0])
       }

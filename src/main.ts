@@ -23,17 +23,21 @@ export const main = async () => {
   })
   await takeScreenshot({ page, baseName: "after-login", versioned: false })
   const gotReservations = await getReservations(loggedIn)
-  console.log(gotReservations.payload.reservations)
+  // console.log(gotReservations.payload.reservations)
   await takeScreenshot({ page, baseName: "reservations", versioned: false })
-  await doReserve(gotReservations)
+  const reserved = await doReserve(gotReservations)
   await takeScreenshot({
     page,
     baseName: "done-reservations",
     versioned: false,
   })
 
-  // const myMenuContent = await page.content()
-  // console.log(myMenuContent)
+  process.stdout.write(
+    JSON.stringify({
+      reservedReservations: reserved.payload.reservations,
+      currentReservations: gotReservations.payload.reservations,
+    }) + "\n"
+  )
 
   await browser.close()
 }
