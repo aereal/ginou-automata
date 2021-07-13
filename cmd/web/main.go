@@ -12,12 +12,19 @@ import (
 	"time"
 
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
+	texporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 	"github.com/dimfeld/httptreemux"
 	"github.com/glassonion1/logz"
 	"github.com/glassonion1/logz/middleware"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"golang.org/x/sync/errgroup"
 	pb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
+
+var mode string
 
 func main() {
 	if err := run(); err != nil {
@@ -37,13 +44,18 @@ func run() error {
 	if projectID == "" {
 		return errors.New("GOOGLE_CLOUD_PROJECT required")
 	}
+	closer, err := setupTracer(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	defer closer(ctx)
 	logz.SetProjectID(projectID)
 	server := &http.Server{
-		Handler: middleware.NetHTTP("http")(buildHandler()),
+		Handler: otelhttp.NewHandler(middleware.NetHTTP("http")(buildHandler()), "app"),
 		Addr:    fmt.Sprintf(":%s", port),
 	}
 	go graceful(ctx, server, 5*time.Second)
-	logz.Infof(ctx, "start server")
+	logz.Infof(ctx, "start server; mode=%s", mode)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		return fmt.Errorf("cannot start server: %w", err)
 	}
@@ -117,6 +129,24 @@ func buildHandler() http.Handler {
 		fmt.Fprintln(w, "{\"ok\":true}")
 	}))
 	return mux
+}
+
+func setupTracer(ctx context.Context, projectID string) (func(ctx context.Context) error, error) {
+	var (
+		exporter sdktrace.SpanExporter
+		err      error
+	)
+	if mode == "local" {
+		exporter, err = stdouttrace.New()
+	} else {
+		exporter, err = texporter.NewExporter(texporter.WithProjectID(projectID))
+	}
+	if err != nil {
+		return func(_ context.Context) error { return nil }, err
+	}
+	tp := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exporter))
+	otel.SetTracerProvider(tp)
+	return tp.ForceFlush, nil
 }
 
 func graceful(ctx context.Context, server *http.Server, timeout time.Duration) {
