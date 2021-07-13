@@ -63,7 +63,7 @@ jobs:
             --image=asia.gcr.io/ginou-automata/ginou-automata/ginou-automata-app:${{ github.sha }} \
             --region=asia-east1 \
             --labels=commit-sha=${{ github.sha }},gh-actions-job-id=${{ github.job }} \
-            --set-env-vars=NODE_ENV=production \
+            --set-env-vars=GOOGLE_CLOUD_PROJECT=ginou-automata \
             --service-account=cloud-run-runner@ginou-automata.iam.gserviceaccount.com \
             --memory=1Gi \
             --quiet
