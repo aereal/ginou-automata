@@ -69,13 +69,6 @@ locals {
 resource "google_project_iam_member" "cloud_run_runner_secret_accessor" {
   role   = "roles/secretmanager.secretAccessor"
   member = "serviceAccount:${google_service_account.cloud_run_runner.email}"
-  condition {
-    title      = "allow_access_to_ginou-related_secrets"
-    expression = <<-EOS
-      resource.type == "secretmanager.googleapis.com/Secret" &&
-      (${join(" || ", [for s in local.cloud_run_runner_access_secrets : "resource.name == \"${s.name}\""])})
-    EOS
-  }
 }
 
 resource "google_service_account" "github_actions_runner" {
