@@ -188,10 +188,8 @@ func buildHandler(projectID string) http.Handler {
 		startedAt := time.Now()
 		stdout, stderr, err := runScenario(ctx, cfg)
 		elapsed := time.Since(startedAt)
-		if stdout != nil && stderr != nil {
-			out, _ := ioutil.ReadAll(stdout)
+		if stderr != nil {
 			errout, _ := ioutil.ReadAll(stderr)
-			logz.Infof(ctx, "stdout=%q", out)
 			logz.Infof(ctx, "stderr=%q", errout)
 		}
 		if err != nil {
@@ -200,8 +198,16 @@ func buildHandler(projectID string) http.Handler {
 			fmt.Fprintln(w, "{\"error\":\"failed to run scenario\"}")
 			return
 		}
+		var payload interface{}
+		_ = json.NewDecoder(stdout).Decode(&payload)
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(struct{ ElapsedMilliseconds int64 }{ElapsedMilliseconds: elapsed.Milliseconds()})
+		_ = json.NewEncoder(w).Encode(struct {
+			ElapsedMilliseconds int64
+			Payload             interface{}
+		}{
+			ElapsedMilliseconds: elapsed.Milliseconds(),
+			Payload:             payload,
+		})
 	}))
 	return mux
 }
