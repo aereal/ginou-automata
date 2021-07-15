@@ -65,5 +65,5 @@ jobs:
             --labels=commit-sha=${{ github.sha }},gh-actions-job-id=${{ github.job }} \
             --set-env-vars=GOOGLE_CLOUD_PROJECT=ginou-automata \
             --service-account=cloud-run-runner@ginou-automata.iam.gserviceaccount.com \
-            --memory=1Gi \
+            --memory=2Gi \
             --quiet
