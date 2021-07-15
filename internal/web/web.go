@@ -17,9 +17,11 @@ import (
 	"github.com/dimfeld/httptreemux"
 	"github.com/glassonion1/logz"
 	"github.com/glassonion1/logz/middleware"
+	logzpropagation "github.com/glassonion1/logz/propagation"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -42,6 +44,10 @@ func (a *WebApp) Server(ctx context.Context) (*http.Server, error) {
 	}
 	defer closer(ctx)
 	logz.SetProjectID(a.config.projectID)
+	// configure only text map propagator instead of calling logz.InitTracer() for remaining tracer provider config that configured in setupTracer()
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}, logzpropagation.HTTPFormat{}),
+	)
 	server := &http.Server{
 		Handler: otelhttp.NewHandler(middleware.NetHTTP("http")(a.buildHandler()), "app"),
 		Addr:    fmt.Sprintf(":%s", a.config.port),
