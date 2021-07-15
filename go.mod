@@ -16,3 +16,5 @@ require (
 )
 
 replace github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace v0.20.1 => github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace v0.20.1-0.20210713163924-14c16a38f9bf
+
+replace github.com/glassonion1/logz => github.com/aereal/logz v0.3.12-0.20210715151259-cbe254ceb345

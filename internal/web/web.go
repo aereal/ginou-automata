@@ -125,16 +125,16 @@ func (a *WebApp) handleRun() http.Handler {
 			fmt.Fprintln(w, "{\"error\":\"failed to run scenario\"}")
 			return
 		}
-		var payload interface{}
-		_ = json.NewDecoder(stdout).Decode(&payload)
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(struct {
+		entry := struct {
 			ElapsedMilliseconds int64
 			Payload             interface{}
 		}{
 			ElapsedMilliseconds: elapsed.Milliseconds(),
-			Payload:             payload,
-		})
+		}
+		_ = json.NewDecoder(stdout).Decode(&entry.Payload)
+		logz.InfoStructured(ctx, entry)
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(entry)
 	})
 }
 
