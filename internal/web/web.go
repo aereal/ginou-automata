@@ -11,10 +11,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"sync"
 	"time"
 
-	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	texporter "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace"
 	"github.com/dimfeld/httptreemux"
 	"github.com/glassonion1/logz"
@@ -23,8 +21,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"golang.org/x/sync/errgroup"
-	pb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
 func NewWebApp(mode string) (*WebApp, error) {
@@ -63,10 +59,18 @@ func (a *WebApp) populateConfig(ctx context.Context) error {
 	if cfg.projectID == "" {
 		return errors.New("GOOGLE_CLOUD_PROJECT required")
 	}
-	var err error
-	cfg.secrets, err = populateConfigFromSecrets(ctx, cfg.projectID)
-	if err != nil {
-		return err
+	cfg.secrets = &secretConfig{}
+	cfg.secrets.loginID = os.Getenv("GINOU_LOGIN_ID")
+	if cfg.secrets.loginID == "" {
+		return errors.New("GINOU_LOGIN_ID required")
+	}
+	cfg.secrets.loginPassword = os.Getenv("GINOU_LOGIN_PASSWORD")
+	if cfg.secrets.loginPassword == "" {
+		return errors.New("GINOU_LOGIN_PASSWORD required")
+	}
+	cfg.secrets.yoyakuURL = os.Getenv("GINOU_YOYAKU_URL")
+	if cfg.secrets.yoyakuURL == "" {
+		return errors.New("GINOU_YOYAKU_URL required")
 	}
 	a.config = cfg
 	return nil
@@ -135,35 +139,6 @@ func (a *WebApp) buildHandler() http.Handler {
 	return mux
 }
 
-func populateConfigFromSecrets(ctx context.Context, projectID string) (*secretConfig, error) {
-	svc, err := secretmanager.NewClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("secretmanager.NewClient: %w", err)
-	}
-	eg, ctx := errgroup.WithContext(ctx)
-	cfg := &secretConfig{}
-	for _, name := range cfg.secretNames() {
-		n := name
-		eg.Go(func() error {
-			resp, err := svc.AccessSecretVersion(ctx, &pb.AccessSecretVersionRequest{
-				Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", projectID, n),
-			})
-			if err != nil {
-				return fmt.Errorf("AccessSecretVersion: name=%s error=%w", n, err)
-			}
-			if err := cfg.consume(n, resp.Payload.Data); err != nil {
-				return fmt.Errorf("consume failed: name=%s error=%w", n, err)
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		logz.Errorf(ctx, "failure: %+v", err)
-		return nil, err
-	}
-	return cfg, nil
-}
-
 type appConfig struct {
 	secrets   *secretConfig
 	port      string
@@ -171,7 +146,6 @@ type appConfig struct {
 }
 
 type secretConfig struct {
-	mux           sync.Mutex
 	loginID       string
 	loginPassword string
 	yoyakuURL     string
@@ -197,24 +171,6 @@ func (c *secretConfig) commandEnv() []string {
 
 func (_ *secretConfig) secretNames() []string {
 	return []string{"GINOU_LOGIN_ID", "GINOU_LOGIN_PASSWORD", "GINOU_YOYAKU_URL"}
-}
-
-func (c *secretConfig) consume(name string, encodedValue []byte) error {
-	c.mux.Lock()
-	defer c.mux.Unlock()
-	switch name {
-	case "GINOU_LOGIN_ID":
-		c.loginID = string(encodedValue)
-		return nil
-	case "GINOU_LOGIN_PASSWORD":
-		c.loginPassword = string(encodedValue)
-		return nil
-	case "GINOU_YOYAKU_URL":
-		c.yoyakuURL = string(encodedValue)
-		return nil
-	default:
-		return fmt.Errorf("unknown name: %s", name)
-	}
 }
 
 func runScenario(ctx context.Context, cfg *appConfig) (io.Reader, io.Reader, error) {
