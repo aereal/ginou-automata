@@ -68,6 +68,11 @@ resource "google_project_iam_member" "cloud_run_runner_invoker" {
   member = "serviceAccount:${google_service_account.cloud_run_runner.email}"
 }
 
+resource "google_project_iam_member" "cloud_run_runner_trace_agent" {
+  role   = "roles/cloudtrace.agent"
+  member = "serviceAccount:${google_service_account.cloud_run_runner.email}"
+}
+
 locals {
   cloud_run_runner_access_secrets = [google_secret_manager_secret.ginou_login_id, google_secret_manager_secret.ginou_login_password, google_secret_manager_secret.ginou_yoyaku_url]
 }
