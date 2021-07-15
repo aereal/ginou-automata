@@ -51,7 +51,7 @@ func (a *WebApp) Server(ctx context.Context) (*http.Server, error) {
 	defer closer(ctx)
 	logz.SetProjectID(projectID)
 	server := &http.Server{
-		Handler: otelhttp.NewHandler(middleware.NetHTTP("http")(buildHandler(projectID)), "app"),
+		Handler: otelhttp.NewHandler(middleware.NetHTTP("http")(a.buildHandler(projectID)), "app"),
 		Addr:    fmt.Sprintf(":%s", port),
 	}
 	return server, nil
@@ -75,10 +75,8 @@ func setupTracer(ctx context.Context, projectID string, mode string) (func(ctx c
 	return tp.ForceFlush, nil
 }
 
-func buildHandler(projectID string) http.Handler {
-	mux := httptreemux.NewContextMux()
-	cp := &configProvider{projectID: projectID}
-	mux.GET("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (a *WebApp) handleRoot(cp *configProvider) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		w.Header().Set("content-type", "application/json")
 		_, err := cp.AssumeConfig(ctx)
@@ -89,8 +87,11 @@ func buildHandler(projectID string) http.Handler {
 		}
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "{\"ok\":true}")
-	}))
-	mux.POST("/run", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	})
+}
+
+func (a *WebApp) handleRun(cp *configProvider) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		ctx := r.Context()
 		cfg, err := cp.AssumeConfig(ctx)
@@ -123,7 +124,14 @@ func buildHandler(projectID string) http.Handler {
 			ElapsedMilliseconds: elapsed.Milliseconds(),
 			Payload:             payload,
 		})
-	}))
+	})
+}
+
+func (a *WebApp) buildHandler(projectID string) http.Handler {
+	mux := httptreemux.NewContextMux()
+	cp := &configProvider{projectID: projectID}
+	mux.Handler(http.MethodGet, "/", a.handleRoot(cp))
+	mux.Handler(http.MethodPost, "/run", a.handleRun(cp))
 	return mux
 }
 
