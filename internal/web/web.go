@@ -32,40 +32,55 @@ func NewWebApp(mode string) (*WebApp, error) {
 }
 
 type WebApp struct {
-	mode string
+	mode   string
+	config *appConfig
 }
 
 func (a *WebApp) Server(ctx context.Context) (*http.Server, error) {
-	port := os.Getenv("PORT")
-	if port == "" {
-		return nil, errors.New("PORT required")
+	if err := a.populateConfig(ctx); err != nil {
+		return nil, err
 	}
-	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
-	if projectID == "" {
-		return nil, errors.New("GOOGLE_CLOUD_PROJECT required")
-	}
-	closer, err := setupTracer(ctx, projectID, a.mode)
+	closer, err := a.setupTracer(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer closer(ctx)
-	logz.SetProjectID(projectID)
+	logz.SetProjectID(a.config.projectID)
 	server := &http.Server{
-		Handler: otelhttp.NewHandler(middleware.NetHTTP("http")(a.buildHandler(projectID)), "app"),
-		Addr:    fmt.Sprintf(":%s", port),
+		Handler: otelhttp.NewHandler(middleware.NetHTTP("http")(a.buildHandler()), "app"),
+		Addr:    fmt.Sprintf(":%s", a.config.port),
 	}
 	return server, nil
 }
 
-func setupTracer(ctx context.Context, projectID string, mode string) (func(ctx context.Context) error, error) {
+func (a *WebApp) populateConfig(ctx context.Context) error {
+	cfg := &appConfig{}
+	cfg.port = os.Getenv("PORT")
+	if cfg.port == "" {
+		return errors.New("PORT required")
+	}
+	cfg.projectID = os.Getenv("GOOGLE_CLOUD_PROJECT")
+	if cfg.projectID == "" {
+		return errors.New("GOOGLE_CLOUD_PROJECT required")
+	}
+	var err error
+	cfg.secrets, err = populateConfigFromSecrets(ctx, cfg.projectID)
+	if err != nil {
+		return err
+	}
+	a.config = cfg
+	return nil
+}
+
+func (a *WebApp) setupTracer(ctx context.Context) (func(ctx context.Context) error, error) {
 	var (
 		exporter sdktrace.SpanExporter
 		err      error
 	)
-	if mode == "local" {
+	if a.mode == "local" {
 		exporter, err = stdouttrace.New()
 	} else {
-		exporter, err = texporter.NewExporter(texporter.WithProjectID(projectID))
+		exporter, err = texporter.NewExporter(texporter.WithProjectID(a.config.projectID))
 	}
 	if err != nil {
 		return func(_ context.Context) error { return nil }, err
@@ -75,34 +90,20 @@ func setupTracer(ctx context.Context, projectID string, mode string) (func(ctx c
 	return tp.ForceFlush, nil
 }
 
-func (a *WebApp) handleRoot(cp *configProvider) http.Handler {
+func (a *WebApp) handleRoot() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
 		w.Header().Set("content-type", "application/json")
-		_, err := cp.AssumeConfig(ctx)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintln(w, "{\"error\":\"internal error\"}")
-			return
-		}
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, "{\"ok\":true}")
 	})
 }
 
-func (a *WebApp) handleRun(cp *configProvider) http.Handler {
+func (a *WebApp) handleRun() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		ctx := r.Context()
-		cfg, err := cp.AssumeConfig(ctx)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			logz.Errorf(ctx, "failed to fetch config: %s", err)
-			fmt.Fprintln(w, "{\"error\":\"internal error\"}")
-			return
-		}
 		startedAt := time.Now()
-		stdout, stderr, err := runScenario(ctx, cfg)
+		stdout, stderr, err := runScenario(ctx, a.config)
 		elapsed := time.Since(startedAt)
 		if stderr != nil {
 			errout, _ := ioutil.ReadAll(stderr)
@@ -127,43 +128,25 @@ func (a *WebApp) handleRun(cp *configProvider) http.Handler {
 	})
 }
 
-func (a *WebApp) buildHandler(projectID string) http.Handler {
+func (a *WebApp) buildHandler() http.Handler {
 	mux := httptreemux.NewContextMux()
-	cp := &configProvider{projectID: projectID}
-	mux.Handler(http.MethodGet, "/", a.handleRoot(cp))
-	mux.Handler(http.MethodPost, "/run", a.handleRun(cp))
+	mux.Handler(http.MethodGet, "/", a.handleRoot())
+	mux.Handler(http.MethodPost, "/run", a.handleRun())
 	return mux
 }
 
-type configProvider struct {
-	cache     *appConfig
-	projectID string
-}
-
-func (p *configProvider) AssumeConfig(ctx context.Context) (*appConfig, error) {
-	if p.cache != nil {
-		return p.cache, nil
-	}
-	var err error
-	p.cache, err = p.fetchConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return p.cache, nil
-}
-
-func (p *configProvider) fetchConfig(ctx context.Context) (*appConfig, error) {
+func populateConfigFromSecrets(ctx context.Context, projectID string) (*secretConfig, error) {
 	svc, err := secretmanager.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("secretmanager.NewClient: %w", err)
 	}
 	eg, ctx := errgroup.WithContext(ctx)
-	cfg := &appConfig{}
+	cfg := &secretConfig{}
 	for _, name := range cfg.secretNames() {
 		n := name
 		eg.Go(func() error {
 			resp, err := svc.AccessSecretVersion(ctx, &pb.AccessSecretVersionRequest{
-				Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", p.projectID, n),
+				Name: fmt.Sprintf("projects/%s/secrets/%s/versions/latest", projectID, n),
 			})
 			if err != nil {
 				return fmt.Errorf("AccessSecretVersion: name=%s error=%w", n, err)
@@ -182,13 +165,19 @@ func (p *configProvider) fetchConfig(ctx context.Context) (*appConfig, error) {
 }
 
 type appConfig struct {
+	secrets   *secretConfig
+	port      string
+	projectID string
+}
+
+type secretConfig struct {
 	mux           sync.Mutex
 	loginID       string
 	loginPassword string
 	yoyakuURL     string
 }
 
-func (c *appConfig) commandEnv() []string {
+func (c *secretConfig) commandEnv() []string {
 	names := c.secretNames()
 	ret := make([]string, len(names))
 	for i, name := range names {
@@ -206,11 +195,11 @@ func (c *appConfig) commandEnv() []string {
 	return ret
 }
 
-func (_ *appConfig) secretNames() []string {
+func (_ *secretConfig) secretNames() []string {
 	return []string{"GINOU_LOGIN_ID", "GINOU_LOGIN_PASSWORD", "GINOU_YOYAKU_URL"}
 }
 
-func (c *appConfig) consume(name string, encodedValue []byte) error {
+func (c *secretConfig) consume(name string, encodedValue []byte) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	switch name {
@@ -238,7 +227,7 @@ func runScenario(ctx context.Context, cfg *appConfig) (io.Reader, io.Reader, err
 	stderr := new(bytes.Buffer)
 	cmd := exec.CommandContext(ctx, "./node_modules/.bin/ts-node", "src/index.ts")
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, cfg.commandEnv()...)
+	cmd.Env = append(cmd.Env, cfg.secrets.commandEnv()...)
 	cmd.Env = append(cmd.Env, "NODE_ENV=production")
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
