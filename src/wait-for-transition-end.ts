@@ -1,4 +1,4 @@
-import { ElementHandle } from "puppeteer-core"
+import { ElementHandle } from "puppeteer"
 
 export const waitForTransitionEnd = (eh: ElementHandle): Promise<void> =>
   eh.evaluate(
