@@ -39,10 +39,10 @@ export const getReservations = async (prev: Prev): Promise<GotReservations> => {
 
   const divs = await loginFrame.$$<HTMLDivElement>("#lst_lc > .page > div")
   const pairs = Array.from(eachSlice(2, divs))
-  const extractReservation = async (
+  const extractReservations = async (
     pair: ElementHandle<HTMLDivElement>[]
-  ): Promise<Reservation> => {
-    const [dateDiv, scheduleDiv] = pair
+  ): Promise<Reservation[]> => {
+    const [dateDiv, scheduleContainer] = pair
     const rawDate = await dateDiv.evaluate(
       (el) => el.querySelector(".lbl")?.textContent
     )
@@ -50,31 +50,38 @@ export const getReservations = async (prev: Prev): Promise<GotReservations> => {
       throw new Error("date is undefined")
     }
     const date = utcToZonedTime(parseDate(rawDate.slice(0, 10)), "Asia/Tokyo")
-    const [
-      _1,
-      _2,
-      _3,
-      rawStart,
-      _4,
-      rawFinish,
-      subject,
-    ] = await scheduleDiv.evaluate((el) =>
-      Array.from(el.querySelectorAll(".page > div .lbl")).map(
-        (label) => label.textContent?.trim() ?? ""
-      )
+    const reservationsOnDay = await scheduleContainer.$$eval<
+      Array<{
+        readonly subject: string
+        readonly rawStart: string
+        readonly rawFinish: string
+      }>
+    >(".page > div", (nodes) =>
+      nodes.map((el) => {
+        const [_1, _2, _3, rawStart, _4, rawFinish, subject] = Array.from(
+          el.querySelectorAll(".lbl")
+        ).map((label) => label.textContent?.trim() ?? "")
+        return {
+          subject,
+          rawStart,
+          rawFinish,
+        }
+      })
     )
-    const startTime = parseTime(rawStart, date)
-    const finishTime = parseTime(rawFinish, date)
-    return {
-      date,
-      startTime,
-      finishTime,
-      subject,
-    }
+    return reservationsOnDay.map(({ rawFinish, rawStart, subject }) => {
+      const startTime = parseTime(rawStart, date)
+      const finishTime = parseTime(rawFinish, date)
+      return {
+        date,
+        startTime,
+        finishTime,
+        subject,
+      }
+    })
   }
-  const reservations = (
-    await Promise.all(pairs.map(extractReservation))
-  ).filter(isPresent)
+  const reservations = (await Promise.all(pairs.map(extractReservations)))
+    .flat()
+    .filter(isPresent)
   await loginFrame.click(`input[type=submit][value="TOPへ"]`)
   await loginFrame.waitForNavigation()
   return {
